@@ -1,0 +1,2 @@
+# electrochemical-AI
+PhD repo
