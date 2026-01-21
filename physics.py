@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.linear_model import LinearRegression
 from matplotlib import pyplot as plt
 
-def get_peak_values(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: int=70) -> tuple[float, float, int]:
+def get_peak_values(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: int=70, plotting: bool=False) -> tuple[float, float, int]:
     '''
     Gets the peak signal values: the peak current, the peak potential and the index value of the corresponding signals.
     The peak represents the amount of electroactive species being oxidized or reduced.
@@ -15,6 +15,7 @@ def get_peak_values(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: in
         I (np.ndarray): the current singnal values
         start_idx (int): starting index for peak search
         end_idx (int): ending index for peak search
+        plotting (bool): whether to plot the peak point on the signal (default is False)
     Returns:
         float: The peak value of the current signal.
         float: The potential at which the current reaches its maximum.
@@ -23,9 +24,24 @@ def get_peak_values(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: in
     peak_current = float(np.max(I[start_idx:end_idx]))
     peak_idx = int(np.argmax(I[start_idx:end_idx])) + start_idx
     peak_potential = float(E[peak_idx])
+
+    if plotting:
+        plt.plot(E, I, label='Current vs Potential')
+        plt.plot(peak_potential, peak_current, 'go', label='Peak Point Ip')
+        plt.plot(peak_potential, 0, 'r|', label='Peak potential Ep')
+        plt.vlines(peak_potential, 0, peak_current, colors='r', linestyles='dashed', label='Peak Current Ip')
+        plt.plot(E[start_idx], 0, 'rx', label='signal start')
+        plt.plot(E[end_idx], 0, 'rx', label='signal end')
+        plt.xlabel('Potential (µV)')
+        plt.ylabel('Current (µA)')
+        plt.title('Peak Current and Potential')
+        plt.legend()
+        plt.grid()
+        plt.show()
+    
     return peak_current, peak_potential, peak_idx
 
-def get_peak_FWHM(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: int=70, threshold_ratio: float=0.5) -> float:
+def get_peak_FWHM(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: int=70, threshold_ratio: float=0.5, plotting: bool=False) -> float:
     '''
     Computes the Full width at half maximum (FWHM).
     This indicates how sharp or broad the peak is.
@@ -37,7 +53,8 @@ def get_peak_FWHM(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: int=
         start_idx (int): starting index for peak width calculation
         end_idx (int): ending index for peak width calculation
         threshold_ratio (float): ratio of peak current to define width (default is 0.5 for FWHM - half maximum)
-    
+        plotting (bool): whether to plot the FWHM on the signal (default is False)
+
     Returns:
         float: The voltage difference between the two points where the current is half of Ip.
     '''
@@ -52,6 +69,19 @@ def get_peak_FWHM(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: int=
     left_idx = indexes_above_threshold[0]
     right_idx = indexes_above_threshold[-1] + 1
     peak_width = E[right_idx] - E[left_idx]
+
+    if plotting:
+        plt.plot(E, I, label='Current vs Potential')
+        plt.hlines(threshold, E[left_idx], E[right_idx], colors='r', linestyles='dashed', label='FWHM Threshold')
+        plt.plot(E[left_idx], threshold, 'go')
+        plt.plot(E[right_idx], threshold, 'go')
+        plt.vlines([E[left_idx], E[right_idx]], 0, threshold, colors='r', linestyles='dashed', label='FWHM Points')
+        plt.xlabel('Potential (V)')
+        plt.ylabel('Current (A)')
+        plt.title('Full Width at Half Maximum (FWHM)')
+        plt.legend()
+        plt.grid()
+        plt.show()
 
     return float(peak_width)
 
@@ -72,6 +102,10 @@ def get_peak_area(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: int=
     Returns:
         float: The area under the peak curve (numerical integration).
     '''
+    # Ensure arrays are float type
+    E = np.array(E, dtype=float)
+    I = np.array(I, dtype=float)
+    
     peak_area = np.trapz(I[start_idx:end_idx], E[start_idx:end_idx])
     
     if plotting:
@@ -86,9 +120,9 @@ def get_peak_area(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: int=
     
     return float(peak_area)
 
-def get_left_slope(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: int=70, plotting: bool=False) -> np.ndarray[float]:
+def get_left_slope(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: int=70, plotting: bool=False) -> float:
     '''
-    Left slope, i.e. the pre-peak slope.
+    Left slope, i.e. the pre-peak slope. Mathematically speaking, this is the derivative before the peak.
     The slope of current increase before the peak. This can indicate how fast the electrochemical reaction turns on.
     This can be sensitive to diffusion, adsorption and surface kinetics.
 
@@ -100,7 +134,7 @@ def get_left_slope(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: int
         plotting (bool): whether to plot the linear approximation (default is False)
     
     Returns:
-        NDArray[float64]: The coefficients of the linear approximation
+        float: The left slope of the signal
     '''
     # defining the local window for the left slope
     # we need the signals E_left and I_left, with values between threshold and peak
@@ -134,11 +168,11 @@ def get_left_slope(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: int
         plt.title('Left Slope Linear Approximation')
         plt.show()
     
-    return coefficients
+    return float(coefficients[0])
 
-def get_right_slope(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: int=70, plotting: bool=False) -> np.ndarray[float]:
+def get_right_slope(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: int=70, plotting: bool=False) -> float:
     '''
-    Right slope, i.e. the post-peak slope.
+    Right slope, i.e. the post-peak slope. Mathematically speaking, this is the derivative after the peak.
     The slope of current decrease after the peak. This can indicate how fast the electrochemical reaction turns off.
     This can be sensitive to diffusion, adsorption and surface kinetics.
 
@@ -150,7 +184,7 @@ def get_right_slope(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: in
         plotting (bool): whether to plot the linear approximation (default is False)
     
     Returns:
-        NDArray[float64]: The coefficients of the linear approximation
+        float: The right slope of the linearsignal
     '''
     # Defining the local window for the right slope
     # we need the signals E_right and I_right, with values between peak and end_idx
@@ -158,11 +192,11 @@ def get_right_slope(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: in
     
     alpha = 0.1
     Ith = alpha * Ip
-    idx_threshold = peak_idx + np.where(I[peak_idx:end_idx] >= Ith)[0][-1]
+    idx_threshold = peak_idx + 1 + np.where(I[peak_idx:end_idx] >= Ith)[0][-1]
 
     # Ensure arrays are float type for polyfit
-    I_right = np.array(I[peak_idx:idx_threshold], dtype=float)
-    E_right = np.array(E[peak_idx:idx_threshold], dtype=float)
+    I_right = np.array(I[peak_idx + 1:idx_threshold], dtype=float)
+    E_right = np.array(E[peak_idx + 1:idx_threshold], dtype=float)
 
     if len(I_right) < 2 or len(E_right) < 2:
         print("Warning: Not enough points to calculate right slope.")
@@ -184,4 +218,62 @@ def get_right_slope(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: in
         plt.title('Right Slope Linear Approximation')
         plt.show()
 
-    return coefficients
+    return float(coefficients[0])
+
+def get_slope_asymmetry(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: int=70) -> float:
+    '''
+    Slope asymmetry.
+    The ratio of left slope to right slope.
+    This can indicate if the peak is symmetric or skewed.
+    Asymetric peaks can indicate adsorption, kinetics or surface effects.
+
+    Arguments:
+        E (np.ndarray): list of potential values
+        I (np.ndarray): list of current values
+        start_idx (int): starting index for slope calculation
+        end_idx (int): ending index for slope calculation
+    Returns:
+        float: The ratio of left slope to right slope.
+    '''
+    left_slope = get_left_slope(E, I, start_idx, end_idx)
+    right_slope = get_right_slope(E, I, start_idx, end_idx)
+
+    return float(np.abs(left_slope) / np.abs(right_slope))
+
+def get_mean_slope(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: int=70) -> float:
+    '''
+    Mean slope.
+    The average of left and right slopes.
+    This can indicate the overall steepness of the peak.
+
+    Arguments:
+        E (np.ndarray): list of potential values
+        I (np.ndarray): list of current values
+        start_idx (int): starting index for slope calculation
+        end_idx (int): ending index for slope calculation
+    Returns:
+        float: The average of left and right slopes.
+    '''
+    left_slope = get_left_slope(E, I, start_idx, end_idx)
+    right_slope = get_right_slope(E, I, start_idx, end_idx)
+
+    return float((np.abs(left_slope) + np.abs(right_slope)) / 2)
+
+def get_peak_sharpness(E: np.ndarray, I: np.ndarray, start_idx: int=18, end_idx: int=70) -> float:
+    '''
+    Peak sharpness, i.e. the second derrivative at the peak.
+    Second derivative tells you how tight the maximum is.
+
+    Arguments:
+        E (np.ndarray): list of potential values
+        I (np.ndarray): list of current values
+        start_idx (int): starting index for peak calculation
+        end_idx (int): ending index for peak calculation
+    Returns:
+        float: The second derivative at the peak, describing the sharpness of the signal.
+    '''
+    dE = E[1] - E[0]  # assuming uniform spacing
+    _, _, peak_idx = get_peak_values(E, I, start_idx, end_idx)
+    sharpness = (I[peak_idx + 1] - 2 * I[peak_idx] + I[peak_idx - 1]) / (dE ** 2)
+
+    return float(sharpness)
